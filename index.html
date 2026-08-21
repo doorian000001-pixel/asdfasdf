@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>제주도 인구 데이터 시각화</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
+        .controls {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        select {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        select:hover {
+            border-color: #4CAF50;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+        }
+
+        #map {
+            height: 600px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .info-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .info-card h3 {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+
+        .info-card .value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .legend {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+
+        .legend h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .legend-circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            opacity: 0.7;
+            border: 2px solid rgba(0,0,0,0.3);
+        }
+
+        .popup-content {
+            min-width: 150px;
+        }
+
+        .popup-content h3 {
+            margin: 0 0 8px 0;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .popup-content p {
+            margin: 4px 0;
+            color: #555;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>제주도 인구 현황</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="yearSelect">연도 선택:</label>
+                <select id="yearSelect">
+                    <option value="2020">2020년</option>
+                    <option value="2021">2021년</option>
+                    <option value="2022">2022년</option>
+                    <option value="2023">2023년</option>
+                    <option value="2024">2024년</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="info">
+            <h3>📊 연도별 지역 통계</h3>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h3>제주시</h3>
+                    <div class="value" id="jejuCityPop">-</div>
+                </div>
+                <div class="info-card">
+                    <h3>서귀포시</h3>
+                    <div class="value" id="seogwipoCityPop">-</div>
+                </div>
+                <div class="info-card">
+                    <h3>전체 인구</h3>
+                    <div class="value" id="totalPop">-</div>
+                </div>
+            </div>
+
+            <div class="legend">
+                <h4>🔵 마커 크기 설명</h4>
+                <p style="color: #666; font-size: 12px; margin-bottom: 10px;">원의 크기는 해당 지역의 인구를 나타냅니다. 더 큰 원은 인구가 더 많음을 의미합니다.</p>
+                <div class="legend-item">
+                    <div class="legend-circle" style="background: #FF6B6B; width: 15px; height: 15px;"></div>
+                    <span>제주시 (시청)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-circle" style="background: #4ECDC4; width: 15px; height: 15px;"></div>
+                    <span>제주시 읍면동</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-circle" style="background: #FFE66D; width: 15px; height: 15px;"></div>
+                    <span>서귀포시 (시청)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-circle" style="background: #95E1D3; width: 15px; height: 15px;"></div>
+                    <span>서귀포시 읍면동</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 제주도 지역별 인구 데이터 (샘플)
+        const populationData = {
+            2020: {
+                jejuCity: { total: 445000, districts: [
+                    { name: '용담동', lat: 33.5180, lng: 126.5330, pop: 25000 },
+                    { name: '화북동', lat: 33.5220, lng: 126.5400, pop: 28000 },
+                    { name: '건입동', lat: 33.5100, lng: 126.5200, pop: 22000 },
+                    { name: '삼도동', lat: 33.5150, lng: 126.5250, pop: 24000 },
+                    { name: '조천읍', lat: 33.5650, lng: 126.6900, pop: 18000 },
+                    { name: '구좌읍', lat: 33.6200, lng: 126.8200, pop: 15000 },
+                    { name: '애월읍', lat: 33.5800, lng: 126.3200, pop: 20000 },
+                    { name: '한림읍', lat: 33.6300, lng: 126.2900, pop: 17000 },
+                    { name: '일도동', lat: 33.4900, lng: 126.5500, pop: 26000 },
+                    { name: '이도동', lat: 33.4800, lng: 126.5600, pop: 27000 },
+                    { name: '도두동', lat: 33.5400, lng: 126.5600, pop: 19000 },
+                    { name: '개포동', lat: 33.5600, lng: 126.5800, pop: 21000 },
+                ]},
+                seogwipoCity: { total: 165000, districts: [
+                    { name: '중앙동', lat: 33.2480, lng: 126.5600, pop: 22000 },
+                    { name: '서호동', lat: 33.2550, lng: 126.5500, pop: 18000 },
+                    { name: '동홍동', lat: 33.2400, lng: 126.5700, pop: 16000 },
+                    { name: '정방동', lat: 33.2350, lng: 126.5650, pop: 14000 },
+                    { name: '서귀포시 본청', lat: 33.2500, lng: 126.5500, pop: 20000 },
+                    { name: '안덕면', lat: 33.3150, lng: 126.4000, pop: 12000 },
+                    { name: '대정읍', lat: 33.3600, lng: 126.2800, pop: 13000 },
+                    { name: '남원읍', lat: 33.3500, lng: 126.7300, pop: 11000 },
+                    { name: '표선면', lat: 33.3800, lng: 126.8100, pop: 9000 },
+                ]}
+            },
+            2021: {
+                jejuCity: { total: 452000, districts: [
+                    { name: '용담동', lat: 33.5180, lng: 126.5330, pop: 26000 },
+                    { name: '화북동', lat: 33.5220, lng: 126.5400, pop: 29000 },
+                    { name: '건입동', lat: 33.5100, lng: 126.5200, pop: 23000 },
+                    { name: '삼도동', lat: 33.5150, lng: 126.5250, pop: 25000 },
+                    { name: '조천읍', lat: 33.5650, lng: 126.6900, pop: 18500 },
+                    { name: '구좌읍', lat: 33.6200, lng: 126.8200, pop: 15500 },
+                    { name: '애월읍', lat: 33.5800, lng: 126.3200, pop: 20500 },
+                    { name: '한림읍', lat: 33.6300, lng: 126.2900, pop: 17500 },
+                    { name: '일도동', lat: 33.4900, lng: 126.5500, pop: 27000 },
+                    { name: '이도동', lat: 33.4800, lng: 126.5600, pop: 28000 },
+                    { name: '도두동', lat: 33.5400, lng: 126.5600, pop: 19500 },
+                    { name: '개포동', lat: 33.5600, lng: 126.5800, pop: 21500 },
+                ]},
+                seogwipoCity: { total: 168000, districts: [
+                    { name: '중앙동', lat: 33.2480, lng: 126.5600, pop: 23000 },
+                    { name: '서호동', lat: 33.2550, lng: 126.5500, pop: 19000 },
+                    { name: '동홍동', lat: 33.2400, lng: 126.5700, pop: 17000 },
+                    { name: '정방동', lat: 33.2350, lng: 126.5650, pop: 15000 },
+                    { name: '서귀포시 본청', lat: 33.2500, lng: 126.5500, pop: 21000 },
+                    { name: '안덕면', lat: 33.3150, lng: 126.4000, pop: 12500 },
+                    { name: '대정읍', lat: 33.3600, lng: 126.2800, pop: 13500 },
+                    { name: '남원읍', lat: 33.3500, lng: 126.7300, pop: 11500 },
+                    { name: '표선면', lat: 33.3800, lng: 126.8100, pop: 9500 },
+                ]}
+            },
+            2022: {
+                jejuCity: { total: 458000, districts: [
+                    { name: '용담동', lat: 33.5180, lng: 126.5330, pop: 27000 },
+                    { name: '화북동', lat: 33.5220, lng: 126.5400, pop: 30000 },
+                    { name: '건입동', lat: 33.5100, lng: 126.5200, pop: 24000 },
+                    { name: '삼도동', lat: 33.5150, lng: 126.5250, pop: 26000 },
+                    { name: '조천읍', lat: 33.5650, lng: 126.6900, pop: 19000 },
+                    { name: '구좌읍', lat: 33.6200, lng: 126.8200, pop: 16000 },
+                    { name: '애월읍', lat: 33.5800, lng: 126.3200, pop: 21000 },
+                    { name: '한림읍', lat: 33.6300, lng: 126.2900, pop: 18000 },
+                    { name: '일도동', lat: 33.4900, lng: 126.5500, pop: 28000 },
+                    { name: '이도동', lat: 33.4800, lng: 126.5600, pop: 29000 },
+                    { name: '도두동', lat: 33.5400, lng: 126.5600, pop: 20000 },
+                    { name: '개포동', lat: 33.5600, lng: 126.5800, pop: 22000 },
+                ]},
+                seogwipoCity: { total: 171000, districts: [
+                    { name: '중앙동', lat: 33.2480, lng: 126.5600, pop: 24000 },
+                    { name: '서호동', lat: 33.2550, lng: 126.5500, pop: 20000 },
+                    { name: '동홍동', lat: 33.2400, lng: 126.5700, pop: 18000 },
+                    { name: '정방동', lat: 33.2350, lng: 126.5650, pop: 16000 },
+                    { name: '서귀포시 본청', lat: 33.2500, lng: 126.5500, pop: 22000 },
+                    { name: '안덕면', lat: 33.3150, lng: 126.4000, pop: 13000 },
+                    { name: '대정읍', lat: 33.3600, lng: 126.2800, pop: 14000 },
+                    { name: '남원읍', lat: 33.3500, lng: 126.7300, pop: 12000 },
+                    { name: '표선면', lat: 33.3800, lng: 126.8100, pop: 10000 },
+                ]}
+            },
+            2023: {
+                jejuCity: { total: 463000, districts: [
+                    { name: '용담동', lat: 33.5180, lng: 126.5330, pop: 28000 },
+                    { name: '화북동', lat: 33.5220, lng: 126.5400, pop: 31000 },
+                    { name: '건입동', lat: 33.5100, lng: 126.5200, pop: 25000 },
+                    { name: '삼도동', lat: 33.5150, lng: 126.5250, pop: 27000 },
+                    { name: '조천읍', lat: 33.5650, lng: 126.6900, pop: 19500 },
+                    { name: '구좌읍', lat: 33.6200, lng: 126.8200, pop: 16500 },
+                    { name: '애월읍', lat: 33.5800, lng: 126.3200, pop: 21500 },
+                    { name: '한림읍', lat: 33.6300, lng: 126.2900, pop: 18500 },
+                    { name: '일도동', lat: 33.4900, lng: 126.5500, pop: 29000 },
+                    { name: '이도동', lat: 33.4800, lng: 126.5600, pop: 30000 },
+                    { name: '도두동', lat: 33.5400, lng: 126.5600, pop: 20500 },
+                    { name: '개포동', lat: 33.5600, lng: 126.5800, pop: 23000 },
+                ]},
+                seogwipoCity: { total: 174000, districts: [
+                    { name: '중앙동', lat: 33.2480, lng: 126.5600, pop: 25000 },
+                    { name: '서호동', lat: 33.2550, lng: 126.5500, pop: 21000 },
+                    { name: '동홍동', lat: 33.2400, lng: 126.5700, pop: 19000 },
+                    { name: '정방동', lat: 33.2350, lng: 126.5650, pop: 17000 },
+                    { name: '서귀포시 본청', lat: 33.2500, lng: 126.5500, pop: 23000 },
+                    { name: '안덕면', lat: 33.3150, lng: 126.4000, pop: 13500 },
+                    { name: '대정읍', lat: 33.3600, lng: 126.2800, pop: 14500 },
+                    { name: '남원읍', lat: 33.3500, lng: 126.7300, pop: 12500 },
+                    { name: '표선면', lat: 33.3800, lng: 126.8100, pop: 10500 },
+                ]}
+            },
+            2024: {
+                jejuCity: { total: 468000, districts: [
+                    { name: '용담동', lat: 33.5180, lng: 126.5330, pop: 29000 },
+                    { name: '화북동', lat: 33.5220, lng: 126.5400, pop: 32000 },
+                    { name: '건입동', lat: 33.5100, lng: 126.5200, pop: 26000 },
+                    { name: '삼도동', lat: 33.5150, lng: 126.5250, pop: 28000 },
+                    { name: '조천읍', lat: 33.5650, lng: 126.6900, pop: 20000 },
+                    { name: '구좌읍', lat: 33.6200, lng: 126.8200, pop: 17000 },
+                    { name: '애월읍', lat: 33.5800, lng: 126.3200, pop: 22000 },
+                    { name: '한림읍', lat: 33.6300, lng: 126.2900, pop: 19000 },
+                    { name: '일도동', lat: 33.4900, lng: 126.5500, pop: 30000 },
+                    { name: '이도동', lat: 33.4800, lng: 126.5600, pop: 31000 },
+                    { name: '도두동', lat: 33.5400, lng: 126.5600, pop: 21000 },
+                    { name: '개포동', lat: 33.5600, lng: 126.5800, pop: 24000 },
+                ]},
+                seogwipoCity: { total: 177000, districts: [
+                    { name: '중앙동', lat: 33.2480, lng: 126.5600, pop: 26000 },
+                    { name: '서호동', lat: 33.2550, lng: 126.5500, pop: 22000 },
+                    { name: '동홍동', lat: 33.2400, lng: 126.5700, pop: 20000 },
+                    { name: '정방동', lat: 33.2350, lng: 126.5650, pop: 18000 },
+                    { name: '서귀포시 본청', lat: 33.2500, lng: 126.5500, pop: 24000 },
+                    { name: '안덕면', lat: 33.3150, lng: 126.4000, pop: 14000 },
+                    { name: '대정읍', lat: 33.3600, lng: 126.2800, pop: 15000 },
+                    { name: '남원읍', lat: 33.3500, lng: 126.7300, pop: 13000 },
+                    { name: '표선면', lat: 33.3800, lng: 126.8100, pop: 11000 },
+                ]}
+            }
+        };
+
+        // 맵 초기화
+        const map = L.map('map').setView([33.40, 126.52], 10);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        let markers = [];
+
+        function formatNumber(num) {
+            return num.toLocaleString('ko-KR');
+        }
+
+        function getMarkerSize(population) {
+            return Math.sqrt(population / 500);
+        }
+
+        function updateMap(year) {
+            // 기존 마커 제거
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            const data = populationData[year];
+            let totalPopulation = data.jejuCity.total + data.seogwipoCity.total;
+
+            // 제주시 마커
+            data.jejuCity.districts.forEach(district => {
+                const radius = getMarkerSize(district.pop);
+                const circle = L.circleMarker([district.lat, district.lng], {
+                    radius: radius,
+                    fillColor: '#4ECDC4',
+                    color: '#333',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                }).addTo(map);
+
+                const popupContent = `
+                    <div class="popup-content">
+                        <h3>${district.name}</h3>
+                        <p>인구: <strong>${formatNumber(district.pop)}명</strong></p>
+                        <p>도시: 제주시</p>
+                        <p>연도: ${year}년</p>
+                    </div>
+                `;
+                circle.bindPopup(popupContent);
+                markers.push(circle);
+            });
+
+            // 서귀포시 마커
+            data.seogwipoCity.districts.forEach(district => {
+                const radius = getMarkerSize(district.pop);
+                const circle = L.circleMarker([district.lat, district.lng], {
+                    radius: radius,
+                    fillColor: '#95E1D3',
+                    color: '#333',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                }).addTo(map);
+
+                const popupContent = `
+                    <div class="popup-content">
+                        <h3>${district.name}</h3>
+                        <p>인구: <strong>${formatNumber(district.pop)}명</strong></p>
+                        <p>도시: 서귀포시</p>
+                        <p>연도: ${year}년</p>
+                    </div>
+                `;
+                circle.bindPopup(popupContent);
+                markers.push(circle);
+            });
+
+            // 통계 업데이트
+            document.getElementById('jejuCityPop').textContent = formatNumber(data.jejuCity.total);
+            document.getElementById('seogwipoCityPop').textContent = formatNumber(data.seogwipoCity.total);
+            document.getElementById('totalPop').textContent = formatNumber(totalPopulation);
+        }
+
+        // 연도 선택 이벤트
+        document.getElementById('yearSelect').addEventListener('change', (e) => {
+            updateMap(e.target.value);
+        });
+
+        // 초기 맵 로드
+        updateMap('2024');
+    </script>
+</body>
+</html>
